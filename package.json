@@ -1,0 +1,9 @@
+{
+  "name": "scibasku-chatbot-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Chatbot IA para viajesscibasku.com - Asistente general de viajes",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

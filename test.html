@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test - Scibasku Chatbot Widget</title>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f8f9fa;
+            margin: 0;
+            padding: 2rem;
+        }
+        h1 { color: #0a1628; }
+        p { color: #5a6578; max-width: 600px; line-height: 1.6; }
+        .note {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 8px;
+            padding: 1rem;
+            max-width: 600px;
+            margin-top: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <h1>Scibasku Chatbot Widget - Test Page</h1>
+    <p>Esta pagina simula viajesscibasku.com para probar el widget del chatbot.</p>
+    <p>El boton dorado deberia aparecer en la esquina inferior derecha. Se abrira automaticamente en 10 segundos.</p>
+
+    <div class="note">
+        <strong>Nota:</strong> En produccion, el widget se carga desde Vercel. Para test local,
+        el API endpoint apunta a <code>https://scibasku-chatbot-web.vercel.app/api/chat</code>.
+        Si la API no esta deployada aun, las respuestas daran error (normal).
+    </div>
+
+    <!-- Esta es la UNICA linea que Joomla necesita -->
+    <script src="chatbot-widget.js"></script>
+</body>
+</html>

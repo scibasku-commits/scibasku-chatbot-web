@@ -1,0 +1,21 @@
+{
+  "buildCommand": "echo 'Static deployment - no build required'",
+  "outputDirectory": "./",
+  "cleanUrls": false,
+  "headers": [
+    {
+      "source": "/chatbot-widget.js",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Content-Type", "value": "application/javascript" },
+        { "key": "Cache-Control", "value": "public, max-age=3600" }
+      ]
+    }
+  ],
+  "functions": {
+    "api/**/*.js": {
+      "memory": 1024,
+      "maxDuration": 15
+    }
+  }
+}
