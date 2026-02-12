@@ -1,18 +1,27 @@
 // Vercel Serverless Function - Chatbot Web viajesscibasku.com
 // Asistente general para visitantes de la web publica
 // Modelo: claude-haiku-4-5-20251001 (rapido, barato)
+// + Supabase persistence + admin takeover support
+
+import { createClient } from '@supabase/supabase-js';
+
+// Supabase client (optional - degrades gracefully if not configured)
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
 const SYSTEM_PROMPT = `Eres el asistente de viaje de Viajes Scibasku en la web publica viajesscibasku.com.
 
 === REGLAS ABSOLUTAS ===
 
-1. SOLO responde sobre viajes y destinos que Scibasku comercializa. Si no esta aqui, di "No tengo esa informacion. Contacta con Giora: +34 619 40 10 41"
-2. NUNCA inventes nombres de hoteles especificos, precios exactos, direcciones ni telefonos de terceros.
-3. NUNCA des precios concretos. Si preguntan precios → "Cada viaje es personalizado. Giora te prepara un presupuesto a medida: +34 619 40 10 41 o info@viajesscibasku.com"
-4. NUNCA hagas reservas ni confirmes disponibilidad. Si quieren reservar → "Para reservar contacta con Giora directamente."
-5. Otro tema que no sea viajes → "Solo puedo ayudarte con viajes y destinos. Para otras consultas, contacta con nosotros."
-6. NUNCA menciones comisiones, margenes, markup ni precios internos.
-7. Si preguntan por un destino que no conoces → "No tengo informacion sobre ese destino. Giora viaja constantemente y puede asesorarte: +34 619 40 10 41"
+1. Scibasku SOLO hace tres cosas: buceo premium, esqui premium y expediciones/safaris. NADA MAS. Si preguntan por otro tipo de viaje (cruceros, parques tematicos, rutas en coche, city breaks, turismo general) → "Eso no es lo nuestro. Scibasku se especializa en buceo, esqui y expediciones. En eso somos los mejores. Te puedo contar mas?"
+2. SOLO responde sobre destinos que aparecen en este prompt. Si el destino NO esta listado abajo → "Ese destino no lo trabajamos. Nuestras especialidades son buceo (Maldivas, Mar Rojo, Indonesia, Filipinas, Galapagos), esqui (Japon, Canada, Alpes, Dolomitas) y safaris (Kenia, Tanzania). Alguno de estos te interesa?"
+3. NUNCA sugieras que Scibasku puede hacer cosas fuera de sus especialidades. NUNCA digas "aunque no sea lo tipico" ni "podemos intentarlo". Si no es buceo, esqui o expediciones, NO LO HACEMOS. Punto.
+4. NUNCA inventes nombres de hoteles especificos, precios exactos, direcciones ni telefonos de terceros.
+5. NUNCA des precios concretos. Si preguntan precios → "Cada viaje es personalizado. Contacta conmigo para un presupuesto a medida: +34 619 40 10 41 o info@viajesscibasku.com"
+6. NUNCA hagas reservas ni confirmes disponibilidad. Si quieren reservar → "Contacta conmigo directamente para gestionarlo."
+7. Otro tema que no sea viajes → "Solo puedo ayudarte con viajes de buceo, esqui y expediciones."
+8. NUNCA menciones comisiones, margenes, markup ni precios internos.
 
 === FORMATO ===
 
@@ -24,12 +33,13 @@ const SYSTEM_PROMPT = `Eres el asistente de viaje de Viajes Scibasku en la web p
 
 === PERSONALIDAD ===
 
-Tono Giora (fundador Scibasku, mas de 40 anos viajando):
+Eres Giora, fundador de Scibasku, mas de 40 anos viajando. Hablas en PRIMERA PERSONA siempre ("yo", "nosotros", "en Scibasku hacemos"). NUNCA te refieras a "Giora" en tercera persona. TU ERES Giora.
 - Calido pero experto, vas al grano
 - Hablas como a un amigo: complicidad, tips practicos
 - Espanol informal, tuteas. Conciso.
 - Transmites pasion por los destinos
 - "Solo vendemos destinos que hemos vivido" es tu filosofia
+- Cuando algo no es tu especialidad, eres HONESTO y firme: "eso no lo hacemos" sin dejar puertas abiertas
 
 === ESPECIALIDADES SCIBASKU ===
 
@@ -78,18 +88,18 @@ Viajes Scibasku:
 - Atencion personalizada, no paquetes turisticos masivos
 - Cada viaje se disena a medida del cliente
 
-Contacto:
-- Telefono/WhatsApp: +34 619 40 10 41
-- Email: info@viajesscibasku.com
+Contacto (TU contacto, habla en primera persona):
+- Mi telefono/WhatsApp: +34 619 40 10 41
+- Mi email: info@viajesscibasku.com
 - Web: viajesscibasku.com
 - Google Reviews: valoracion excelente
 
-=== EMERGENCIAS ===
+Cuando des tu contacto, di "contacta conmigo" o "escribeme", NUNCA "contacta con Giora".`;
 
-Giora: +34 619 40 10 41 / info@viajesscibasku.com / wa.me/34619401041`;
+const WALLET_ID = 'scibasku-web';
 
 export default async function handler(req, res) {
-    // CORS headers - permitir viajesscibasku.com y localhost para testing
+    // CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -108,10 +118,119 @@ export default async function handler(req, res) {
     }
 
     try {
-        const { messages } = req.body;
+        const { messages, session_id, poll_admin, last_admin_id } = req.body;
 
+        // --- Session handling ---
+        let sessionId = session_id || null;
+
+        if (supabase) {
+            // Create session if none provided
+            if (!sessionId && messages?.length > 0) {
+                const { data: newSession } = await supabase
+                    .from('chat_sessions')
+                    .insert({
+                        wallet_id: WALLET_ID,
+                        user_agent: req.headers['user-agent'] || null,
+                        ip_address: (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || null
+                    })
+                    .select('id')
+                    .single();
+                if (newSession) {
+                    sessionId = newSession.id;
+
+                    // Fire notification webhook (non-blocking)
+                    const webhookUrl = process.env.NOTIFICATION_WEBHOOK;
+                    if (webhookUrl) {
+                        const firstMsg = messages[messages.length - 1]?.content || '';
+                        fetch(webhookUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                session_id: sessionId,
+                                wallet_id: WALLET_ID,
+                                message: firstMsg,
+                                timestamp: new Date().toISOString()
+                            })
+                        }).catch(() => {}); // fire-and-forget
+                    }
+                }
+            }
+
+            // --- Poll admin messages (lightweight check) ---
+            if (poll_admin && sessionId) {
+                const { data: session } = await supabase
+                    .from('chat_sessions')
+                    .select('is_taken_over')
+                    .eq('id', sessionId)
+                    .single();
+
+                let adminMessages = [];
+                const isTakenOver = session?.is_taken_over || false;
+
+                if (isTakenOver) {
+                    const query = supabase
+                        .from('chat_messages')
+                        .select('id, content, created_at')
+                        .eq('session_id', sessionId)
+                        .eq('role', 'admin')
+                        .order('created_at', { ascending: true });
+                    if (last_admin_id) query.gt('id', last_admin_id);
+                    const { data } = await query;
+                    adminMessages = data || [];
+                }
+
+                return res.status(200).json({
+                    session_id: sessionId,
+                    takeover: isTakenOver,
+                    admin_messages: adminMessages
+                });
+            }
+
+            // --- Check takeover before calling Anthropic ---
+            if (sessionId) {
+                const { data: session } = await supabase
+                    .from('chat_sessions')
+                    .select('is_taken_over')
+                    .eq('id', sessionId)
+                    .single();
+
+                if (session?.is_taken_over) {
+                    // Save user message but do NOT call Anthropic
+                    const lastMessage = messages?.[messages.length - 1];
+                    if (lastMessage?.role === 'user') {
+                        await supabase.from('chat_messages').insert({
+                            session_id: sessionId,
+                            role: 'user',
+                            content: lastMessage.content
+                        });
+                        await supabase.from('chat_sessions')
+                            .update({ last_message_at: new Date().toISOString() })
+                            .eq('id', sessionId);
+                    }
+                    return res.status(200).json({
+                        session_id: sessionId,
+                        takeover: true,
+                        admin_messages: []
+                    });
+                }
+            }
+        }
+
+        // --- Normal chat flow ---
         if (!messages || !Array.isArray(messages) || messages.length === 0) {
             return res.status(400).json({ error: 'Messages array required' });
+        }
+
+        // Save user message to Supabase
+        if (supabase && sessionId) {
+            const lastMessage = messages[messages.length - 1];
+            if (lastMessage?.role === 'user') {
+                await supabase.from('chat_messages').insert({
+                    session_id: sessionId,
+                    role: 'user',
+                    content: lastMessage.content
+                });
+            }
         }
 
         // Limit conversation history to last 10 messages
@@ -145,7 +264,24 @@ export default async function handler(req, res) {
         }
 
         const data = await response.json();
-        return res.status(200).json(data);
+
+        // Save assistant response to Supabase
+        const reply = data.content?.[0]?.text;
+        if (supabase && sessionId && reply) {
+            await supabase.from('chat_messages').insert({
+                session_id: sessionId,
+                role: 'assistant',
+                content: reply
+            });
+            await supabase.from('chat_sessions')
+                .update({ last_message_at: new Date().toISOString() })
+                .eq('id', sessionId);
+        }
+
+        return res.status(200).json({
+            ...data,
+            session_id: sessionId
+        });
 
     } catch (error) {
         console.error('Chat API error:', error);

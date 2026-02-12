@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Chat | Viajes Scibasku</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --navy: #0a1628;
+            --navy-mid: #0d2847;
+            --navy-light: #132d4f;
+            --gold: #d4af37;
+            --gold-light: #e6c655;
+            --cyan: #1fb4d1;
+            --white: #ffffff;
+            --gray: #888888;
+            --gray-light: #b8c5d6;
+            --border: rgba(212,175,55,0.2);
+            --green: #22c55e;
+            --red: #ef4444;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--navy);
+            color: var(--white);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* LOGIN SCREEN */
+        .login-screen {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background: linear-gradient(135deg, var(--navy), var(--navy-mid));
+        }
+
+        .login-box {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 3rem;
+            width: 400px;
+            max-width: 90vw;
+            text-align: center;
+        }
+
+        .login-box h1 {
+            font-family: 'Playfair Display', serif;
+            color: var(--gold);
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .login-box p {
+            color: var(--gray-light);
+            font-size: 0.85rem;
+            margin-bottom: 2rem;
+        }
+
+        .login-input {
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--white);
+            font-size: 1rem;
+            font-family: 'Inter', sans-serif;
+            outline: none;
+            margin-bottom: 1rem;
+        }
+
+        .login-input:focus { border-color: var(--gold); }
+
+        .login-btn {
+            width: 100%;
+            padding: 12px;
+            background: var(--gold);
+            color: var(--navy);
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .login-btn:hover { background: var(--gold-light); }
+
+        .login-error {
+            color: var(--red);
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+            display: none;
+        }
+
+        /* ADMIN LAYOUT */
+        .admin-layout {
+            display: none;
+            height: 100vh;
+            grid-template-columns: 350px 1fr;
+            grid-template-rows: 60px 1fr;
+        }
+
+        /* TOP BAR */
+        .top-bar {
+            grid-column: 1 / -1;
+            background: rgba(0,0,0,0.3);
+            border-bottom: 1px solid var(--border);
+            padding: 0 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .top-bar-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .top-bar h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.2rem;
+            color: var(--gold);
+        }
+
+        .top-bar .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--green);
+            display: inline-block;
+        }
+
+        .top-bar .status-text {
+            font-size: 0.75rem;
+            color: var(--gray-light);
+        }
+
+        .logout-btn {
+            background: none;
+            border: 1px solid rgba(255,255,255,0.15);
+            color: var(--gray-light);
+            padding: 6px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .logout-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+        /* SESSIONS PANEL */
+        .sessions-panel {
+            background: rgba(0,0,0,0.15);
+            border-right: 1px solid var(--border);
+            overflow-y: auto;
+            padding: 1rem;
+        }
+
+        .sessions-header {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--gray);
+            margin-bottom: 1rem;
+            padding: 0 0.5rem;
+        }
+
+        .session-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .session-card:hover { border-color: var(--gold); background: rgba(212,175,55,0.05); }
+        .session-card.active { border-color: var(--gold); background: rgba(212,175,55,0.08); }
+
+        .session-card.takeover { border-left: 3px solid var(--cyan); }
+
+        .session-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.4rem;
+        }
+
+        .session-id-label {
+            font-size: 0.75rem;
+            font-family: monospace;
+            color: var(--gold);
+        }
+
+        .session-badge {
+            font-size: 0.6rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .badge-live { background: var(--cyan); color: var(--white); }
+        .badge-bot { background: rgba(255,255,255,0.1); color: var(--gray-light); }
+
+        .session-preview {
+            font-size: 0.8rem;
+            color: var(--gray-light);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 0.3rem;
+        }
+
+        .session-meta {
+            font-size: 0.7rem;
+            color: var(--gray);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .no-sessions {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: var(--gray);
+            font-size: 0.85rem;
+        }
+
+        /* CONVERSATION PANEL */
+        .conversation-panel {
+            display: flex;
+            flex-direction: column;
+            background: var(--navy);
+            overflow: hidden;
+        }
+
+        .conv-placeholder {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--gray);
+            font-size: 0.9rem;
+        }
+
+        .conv-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0,0,0,0.1);
+        }
+
+        .conv-header-info h3 {
+            font-size: 1rem;
+            color: var(--white);
+        }
+
+        .conv-header-info p {
+            font-size: 0.75rem;
+            color: var(--gray-light);
+        }
+
+        .conv-controls {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn-takeover {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .btn-takeover.take { background: var(--cyan); color: var(--white); }
+        .btn-takeover.take:hover { background: #17a0bb; }
+        .btn-takeover.release { background: var(--gold); color: var(--navy); }
+        .btn-takeover.release:hover { background: var(--gold-light); }
+
+        /* MESSAGES */
+        .conv-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+            min-height: 0;
+        }
+
+        .msg {
+            margin-bottom: 1rem;
+            max-width: 80%;
+            padding: 0.8rem 1rem;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+
+        .msg.user {
+            background: rgba(212,175,55,0.15);
+            border: 1px solid rgba(212,175,55,0.25);
+            margin-left: auto;
+            color: var(--white);
+        }
+
+        .msg.assistant {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            color: var(--gray-light);
+        }
+
+        .msg.admin {
+            background: rgba(31,180,209,0.15);
+            border: 1px solid rgba(31,180,209,0.3);
+            color: var(--cyan);
+        }
+
+        .msg-role {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.3rem;
+            font-weight: 600;
+        }
+
+        .msg.user .msg-role { color: var(--gold); }
+        .msg.assistant .msg-role { color: var(--gray); }
+        .msg.admin .msg-role { color: var(--cyan); }
+
+        .msg-time {
+            font-size: 0.65rem;
+            color: var(--gray);
+            margin-top: 0.3rem;
+        }
+
+        /* ADMIN INPUT */
+        .conv-input {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid var(--border);
+            display: none;
+            gap: 8px;
+            background: rgba(0,0,0,0.1);
+        }
+
+        .conv-input.active { display: flex; flex-direction: column; }
+
+        .conv-input-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .admin-input {
+            flex: 1;
+            padding: 10px 14px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 8px;
+            color: var(--white);
+            font-size: 0.9rem;
+            font-family: 'Inter', sans-serif;
+            outline: none;
+        }
+
+        .admin-input:focus { border-color: var(--cyan); }
+        .admin-input:disabled { opacity: 0.5; }
+        .admin-input:disabled::placeholder { color: var(--gray); }
+
+        .admin-send {
+            padding: 10px 20px;
+            background: var(--cyan);
+            color: var(--white);
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .admin-send:hover { background: #17a0bb; }
+        .admin-send:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .admin-error {
+            font-size: 0.75rem;
+            color: var(--red);
+            display: none;
+            padding: 4px 0 0 0;
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+            .admin-layout { grid-template-columns: 1fr; }
+            .sessions-panel { display: none; }
+            .sessions-panel.mobile-show { display: block; position: fixed; top: 60px; left: 0; right: 0; bottom: 0; z-index: 10; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- LOGIN -->
+    <div class="login-screen" id="loginScreen">
+        <div class="login-box">
+            <h1>Admin Panel</h1>
+            <p>Viajes Scibasku - Chat Monitor</p>
+            <input class="login-input" id="loginPassword" type="password" placeholder="Admin password" onkeypress="if(event.key==='Enter')doLogin()">
+            <button class="login-btn" onclick="doLogin()">Entrar</button>
+            <div class="login-error" id="loginError">Password incorrecto</div>
+        </div>
+    </div>
+
+    <!-- ADMIN PANEL -->
+    <div class="admin-layout" id="adminLayout">
+        <!-- TOP BAR -->
+        <div class="top-bar">
+            <div class="top-bar-left">
+                <h2>Scibasku Chat Admin</h2>
+                <span class="status-dot"></span>
+                <span class="status-text" id="pollStatus">Conectado</span>
+            </div>
+            <button class="logout-btn" onclick="doLogout()">Cerrar sesion</button>
+        </div>
+
+        <!-- SESSIONS -->
+        <div class="sessions-panel" id="sessionsPanel">
+            <div class="sessions-header">Sesiones activas</div>
+            <div id="sessionsList"></div>
+        </div>
+
+        <!-- CONVERSATION -->
+        <div class="conversation-panel" id="conversationPanel">
+            <div class="conv-placeholder" id="convPlaceholder">Selecciona una sesion para ver la conversacion</div>
+
+            <div class="conv-header" id="convHeader" style="display:none;">
+                <div class="conv-header-info">
+                    <h3 id="convTitle">Sesion</h3>
+                    <p id="convSubtitle"></p>
+                </div>
+                <div class="conv-controls">
+                    <button class="btn-takeover take" id="btnTakeover" onclick="doTakeover()" style="display:none;">Tomar Control</button>
+                    <button class="btn-takeover release" id="btnRelease" onclick="doRelease()" style="display:none;">Devolver al Bot</button>
+                </div>
+            </div>
+
+            <div class="conv-messages" id="convMessages" style="display:none;"></div>
+
+            <div class="conv-input" id="convInput">
+                <div class="conv-input-row">
+                    <input class="admin-input" id="adminMsgInput" type="text" placeholder="Escribe como Giora..." disabled onkeypress="if(event.key==='Enter')sendAdminMsg()">
+                    <button class="admin-send" id="adminSendBtn" onclick="sendAdminMsg()" disabled>Enviar</button>
+                </div>
+                <div class="admin-error" id="adminError"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var adminToken = '';
+        var currentSessionId = null;
+        var sessionPollTimer = null;
+        var messagePollTimer = null;
+        var allMessages = [];
+        var lastKnownMsgId = 0;
+        var sessionIsTakenOver = false;
+
+        // === LOGIN ===
+        function doLogin() {
+            var pw = document.getElementById('loginPassword').value.trim();
+            if (!pw) return;
+            adminToken = pw;
+
+            fetch('/api/admin', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + adminToken
+                },
+                body: JSON.stringify({ action: 'verify' })
+            })
+            .then(function(res) {
+                if (!res.ok) throw new Error('bad');
+                return res.json();
+            })
+            .then(function() {
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('adminLayout').style.display = 'grid';
+                startSessionPolling();
+            })
+            .catch(function() {
+                document.getElementById('loginError').style.display = 'block';
+            });
+        }
+
+        function doLogout() {
+            adminToken = '';
+            currentSessionId = null;
+            clearInterval(sessionPollTimer);
+            clearInterval(messagePollTimer);
+            document.getElementById('adminLayout').style.display = 'none';
+            document.getElementById('loginScreen').style.display = 'flex';
+            document.getElementById('loginPassword').value = '';
+            document.getElementById('loginError').style.display = 'none';
+        }
+
+        // === SESSION POLLING ===
+        function startSessionPolling() {
+            fetchSessions();
+            sessionPollTimer = setInterval(fetchSessions, 5000);
+        }
+
+        function fetchSessions() {
+            adminCall({ action: 'list_sessions' })
+            .then(function(data) {
+                renderSessions(data.sessions || []);
+            })
+            .catch(function() {
+                document.getElementById('pollStatus').textContent = 'Error de conexion';
+            });
+        }
+
+        function renderSessions(sessions) {
+            var container = document.getElementById('sessionsList');
+            if (sessions.length === 0) {
+                container.innerHTML = '<div class="no-sessions">Sin sesiones activas</div>';
+                return;
+            }
+
+            var html = '';
+            for (var i = 0; i < sessions.length; i++) {
+                var s = sessions[i];
+                var isActive = s.id === currentSessionId;
+                var isTakeover = s.is_taken_over;
+                var timeAgo = getTimeAgo(s.last_message_at);
+                var shortId = s.id.substring(0, 8);
+                var preview = s.last_message ? truncate(s.last_message.content, 60) : 'Sin mensajes';
+                var badgeClass = isTakeover ? 'badge-live' : 'badge-bot';
+                var badgeText = isTakeover ? 'LIVE' : 'BOT';
+
+                html += '<div class="session-card' + (isActive ? ' active' : '') + (isTakeover ? ' takeover' : '') + '" onclick="selectSession(\'' + s.id + '\')">';
+                html += '<div class="session-top">';
+                html += '<span class="session-id-label">' + shortId + '...</span>';
+                html += '<span class="session-badge ' + badgeClass + '">' + badgeText + '</span>';
+                html += '</div>';
+                html += '<div class="session-preview">' + escapeHtml(preview) + '</div>';
+                html += '<div class="session-meta"><span>' + s.message_count + ' msgs</span><span>' + timeAgo + '</span></div>';
+                html += '</div>';
+            }
+            container.innerHTML = html;
+        }
+
+        // === SELECT SESSION ===
+        function selectSession(sessionId) {
+            currentSessionId = sessionId;
+            allMessages = [];
+            lastKnownMsgId = 0;
+
+            document.getElementById('convPlaceholder').style.display = 'none';
+            document.getElementById('convHeader').style.display = 'flex';
+            document.getElementById('convMessages').style.display = 'block';
+            document.getElementById('convMessages').innerHTML = '';
+
+            clearInterval(messagePollTimer);
+            fetchMessages(true);
+            messagePollTimer = setInterval(function() { fetchMessages(false); }, 2000);
+
+            // Update active card styling
+            var cards = document.querySelectorAll('.session-card');
+            for (var i = 0; i < cards.length; i++) {
+                cards[i].classList.remove('active');
+            }
+            event.currentTarget.classList.add('active');
+        }
+
+        function fetchMessages(fullLoad) {
+            var payload = { action: 'get_messages', session_id: currentSessionId };
+            if (!fullLoad && lastKnownMsgId > 0) {
+                payload.last_message_id = lastKnownMsgId;
+            }
+
+            adminCall(payload)
+            .then(function(data) {
+                var msgs = data.messages || [];
+                var session = data.session || {};
+
+                // Update header
+                var shortId = currentSessionId.substring(0, 8);
+                document.getElementById('convTitle').textContent = 'Sesion ' + shortId + '...';
+                document.getElementById('convSubtitle').textContent =
+                    'Creada: ' + formatDate(session.created_at) +
+                    ' | Ultimo msg: ' + getTimeAgo(session.last_message_at);
+
+                // Update takeover buttons and input
+                var btnTake = document.getElementById('btnTakeover');
+                var btnRelease = document.getElementById('btnRelease');
+                var convInput = document.getElementById('convInput');
+                var adminInput = document.getElementById('adminMsgInput');
+                var adminSendBtn = document.getElementById('adminSendBtn');
+
+                // Always show input when session is selected
+                convInput.classList.add('active');
+                sessionIsTakenOver = !!session.is_taken_over;
+
+                if (sessionIsTakenOver) {
+                    btnTake.style.display = 'none';
+                    btnRelease.style.display = 'inline-block';
+                    adminInput.disabled = false;
+                    adminInput.placeholder = 'Escribe como Giora...';
+                    adminSendBtn.disabled = false;
+                } else {
+                    btnTake.style.display = 'inline-block';
+                    btnRelease.style.display = 'none';
+                    adminInput.disabled = true;
+                    adminInput.placeholder = '\u2B06 Pulsa "Tomar Control" para responder';
+                    adminSendBtn.disabled = true;
+                }
+
+                if (msgs.length > 0) {
+                    if (fullLoad) {
+                        allMessages = msgs;
+                        renderAllMessages();
+                    } else {
+                        for (var i = 0; i < msgs.length; i++) {
+                            allMessages.push(msgs[i]);
+                            appendMessage(msgs[i]);
+                        }
+                    }
+                    lastKnownMsgId = allMessages[allMessages.length - 1].id;
+                }
+            });
+        }
+
+        function renderAllMessages() {
+            var container = document.getElementById('convMessages');
+            container.innerHTML = '';
+            for (var i = 0; i < allMessages.length; i++) {
+                appendMessage(allMessages[i]);
+            }
+        }
+
+        function appendMessage(msg) {
+            var container = document.getElementById('convMessages');
+            var div = document.createElement('div');
+            div.className = 'msg ' + msg.role;
+
+            var roleLabel = msg.role === 'user' ? 'Visitante' : (msg.role === 'admin' ? 'Giora (Admin)' : 'Bot');
+            div.innerHTML = '<div class="msg-role">' + roleLabel + '</div>' +
+                '<div>' + escapeHtml(msg.content) + '</div>' +
+                '<div class="msg-time">' + formatTime(msg.created_at) + '</div>';
+
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // === TAKEOVER / RELEASE ===
+        function doTakeover() {
+            if (!currentSessionId) return;
+            hideAdminError();
+            adminCall({ action: 'takeover', session_id: currentSessionId })
+            .then(function() { fetchMessages(true); fetchSessions(); })
+            .catch(function() { showAdminError('Error al tomar control. Intenta de nuevo.'); });
+        }
+
+        function doRelease() {
+            if (!currentSessionId) return;
+            hideAdminError();
+            adminCall({ action: 'release', session_id: currentSessionId })
+            .then(function() { fetchMessages(true); fetchSessions(); })
+            .catch(function() { showAdminError('Error al devolver control. Intenta de nuevo.'); });
+        }
+
+        // === SEND ADMIN MESSAGE ===
+        function sendAdminMsg() {
+            var input = document.getElementById('adminMsgInput');
+            var text = input.value.trim();
+            if (!text || !currentSessionId) return;
+
+            input.value = '';
+            document.getElementById('adminSendBtn').disabled = true;
+            hideAdminError();
+
+            // Auto-takeover if not already taken over
+            var promise = Promise.resolve();
+            if (!sessionIsTakenOver) {
+                promise = adminCall({ action: 'takeover', session_id: currentSessionId })
+                .then(function() {
+                    sessionIsTakenOver = true;
+                    document.getElementById('btnTakeover').style.display = 'none';
+                    document.getElementById('btnRelease').style.display = 'inline-block';
+                    input.placeholder = 'Escribe como Giora...';
+                    fetchSessions();
+                });
+            }
+
+            promise.then(function() {
+                return adminCall({ action: 'send_message', session_id: currentSessionId, content: text });
+            })
+            .then(function(data) {
+                if (data.message) {
+                    allMessages.push(data.message);
+                    appendMessage(data.message);
+                    lastKnownMsgId = data.message.id;
+                }
+            })
+            .catch(function(err) {
+                showAdminError('Error al enviar mensaje. Intenta de nuevo.');
+                input.value = text; // Restore the message
+            })
+            .finally(function() {
+                document.getElementById('adminSendBtn').disabled = false;
+                input.disabled = false;
+                input.focus();
+            });
+        }
+
+        function showAdminError(msg) {
+            var el = document.getElementById('adminError');
+            el.textContent = msg;
+            el.style.display = 'block';
+            setTimeout(function() { el.style.display = 'none'; }, 5000);
+        }
+
+        function hideAdminError() {
+            document.getElementById('adminError').style.display = 'none';
+        }
+
+        // === API HELPER ===
+        function adminCall(body) {
+            return fetch('/api/admin', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + adminToken
+                },
+                body: JSON.stringify(body)
+            }).then(function(res) {
+                if (res.status === 401) { doLogout(); throw new Error('Unauthorized'); }
+                if (!res.ok) throw new Error('API error');
+                return res.json();
+            });
+        }
+
+        // === UTILS ===
+        function escapeHtml(text) {
+            var div = document.createElement('div');
+            div.appendChild(document.createTextNode(text));
+            return div.innerHTML;
+        }
+
+        function truncate(str, max) {
+            if (!str) return '';
+            return str.length > max ? str.substring(0, max) + '...' : str;
+        }
+
+        function getTimeAgo(dateStr) {
+            if (!dateStr) return '';
+            var diff = Date.now() - new Date(dateStr).getTime();
+            var mins = Math.floor(diff / 60000);
+            if (mins < 1) return 'ahora';
+            if (mins < 60) return mins + ' min';
+            var hours = Math.floor(mins / 60);
+            if (hours < 24) return hours + 'h';
+            return Math.floor(hours / 24) + 'd';
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            var d = new Date(dateStr);
+            return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+        }
+
+        function formatTime(dateStr) {
+            if (!dateStr) return '';
+            var d = new Date(dateStr);
+            return d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+    </script>
+</body>
+</html>

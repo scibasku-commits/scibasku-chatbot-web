@@ -8,8 +8,13 @@
     var API_URL = 'https://scibasku-chatbot-web.vercel.app/api/chat';
     var AUTO_OPEN_DELAY = 10000; // 10 seconds
     var CHAT_TIMEOUT = 18000; // 18 seconds
+    var ADMIN_POLL_INTERVAL = 3000; // 3 seconds
     var chatHistory = [];
     var chatClosedByUser = false;
+    var sessionId = null;
+    var adminPollTimer = null;
+    var lastAdminId = 0;
+    var isTakenOver = false;
 
     // === PILL SYSTEM ===
     var pillPool = [
@@ -178,7 +183,7 @@
         '  <button class="scb-close" onclick="document.getElementById(\'scb-panel\').classList.remove(\'scb-open\'); window._scbClosedByUser=true;">&times;</button>' +
         '</div>' +
         '<div class="scb-messages" id="scb-messages">' +
-        '  <div class="scb-msg scb-bot">Hola! Soy el asistente de Viajes Scibasku. Puedo ayudarte con informacion sobre buceo, esqui, safaris, Maldivas, Japon... Preguntame lo que quieras!</div>' +
+        '  <div class="scb-msg scb-bot">Hola! Soy Giora, de Viajes Scibasku. Somos especialistas en buceo premium, esqui y expediciones. Preguntame lo que quieras sobre estos destinos!</div>' +
         '</div>' +
         '<div class="scb-typing" id="scb-typing">Pensando...</div>' +
         '<div class="scb-pills" id="scb-pills"></div>' +
@@ -304,14 +309,14 @@
     }
 
     function sendUserMessage(text) {
-        var messages = document.getElementById('scb-messages');
+        var messagesEl = document.getElementById('scb-messages');
 
         // User message
         var userDiv = document.createElement('div');
         userDiv.className = 'scb-msg scb-user';
         userDiv.textContent = text;
-        messages.appendChild(userDiv);
-        messages.scrollTop = messages.scrollHeight;
+        messagesEl.appendChild(userDiv);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
 
         chatHistory.push({ role: 'user', content: text });
 
@@ -321,10 +326,13 @@
         var controller = new AbortController();
         var timeoutId = setTimeout(function() { controller.abort(); }, CHAT_TIMEOUT);
 
+        var payload = { messages: chatHistory };
+        if (sessionId) payload.session_id = sessionId;
+
         fetch(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ messages: chatHistory }),
+            body: JSON.stringify(payload),
             signal: controller.signal
         })
         .then(function(res) {
@@ -333,6 +341,23 @@
             return res.json();
         })
         .then(function(data) {
+            // Store session_id from first response
+            if (data.session_id) sessionId = data.session_id;
+
+            // Handle takeover mode
+            if (data.takeover) {
+                isTakenOver = true;
+                startAdminPolling();
+                // Don't show bot reply - admin is responding
+                return;
+            }
+
+            // If we were in takeover and now we're not, stop polling
+            if (isTakenOver && !data.takeover) {
+                isTakenOver = false;
+                stopAdminPolling();
+            }
+
             var reply = data.content && data.content[0] && data.content[0].text
                 ? data.content[0].text
                 : 'No he podido procesar la respuesta. Contacta con Giora: +34 619 40 10 41';
@@ -340,7 +365,7 @@
             var botDiv = document.createElement('div');
             botDiv.className = 'scb-msg scb-bot';
             botDiv.innerHTML = formatBotReply(reply);
-            messages.appendChild(botDiv);
+            messagesEl.appendChild(botDiv);
         })
         .catch(function(err) {
             clearTimeout(timeoutId);
@@ -351,13 +376,66 @@
             } else {
                 errorDiv.textContent = 'Vaya, algo ha fallado. Contacta con Giora: +34 619 40 10 41';
             }
-            messages.appendChild(errorDiv);
+            messagesEl.appendChild(errorDiv);
         })
         .finally(function() {
             document.getElementById('scb-send').disabled = false;
             document.getElementById('scb-typing').style.display = 'none';
-            messages.scrollTop = messages.scrollHeight;
+            messagesEl.scrollTop = messagesEl.scrollHeight;
         });
+    }
+
+    // === ADMIN POLLING (when Giora takes over) ===
+    function startAdminPolling() {
+        if (adminPollTimer) return;
+        adminPollTimer = setInterval(pollAdminMessages, ADMIN_POLL_INTERVAL);
+    }
+
+    function stopAdminPolling() {
+        if (adminPollTimer) {
+            clearInterval(adminPollTimer);
+            adminPollTimer = null;
+        }
+    }
+
+    function pollAdminMessages() {
+        if (!sessionId) return;
+
+        fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                session_id: sessionId,
+                poll_admin: true,
+                last_admin_id: lastAdminId
+            })
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (!data.takeover) {
+                isTakenOver = false;
+                stopAdminPolling();
+                return;
+            }
+
+            var msgs = data.admin_messages || [];
+            var messagesEl = document.getElementById('scb-messages');
+            for (var i = 0; i < msgs.length; i++) {
+                // Skip system messages (takeover/release notifications)
+                if (msgs[i].content && msgs[i].content.indexOf('---') === 0) continue;
+
+                var adminDiv = document.createElement('div');
+                adminDiv.className = 'scb-msg scb-bot';
+                adminDiv.innerHTML = formatBotReply(msgs[i].content);
+                messagesEl.appendChild(adminDiv);
+                chatHistory.push({ role: 'assistant', content: msgs[i].content });
+                lastAdminId = msgs[i].id;
+            }
+            if (msgs.length > 0) {
+                messagesEl.scrollTop = messagesEl.scrollHeight;
+            }
+        })
+        .catch(function() {}); // silent fail on poll
     }
 
     // === INIT ===

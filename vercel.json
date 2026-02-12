@@ -13,9 +13,13 @@
     }
   ],
   "functions": {
-    "api/**/*.js": {
+    "api/chat.js": {
       "memory": 1024,
       "maxDuration": 15
+    },
+    "api/admin.js": {
+      "memory": 1024,
+      "maxDuration": 10
     }
   }
 }
