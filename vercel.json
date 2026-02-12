@@ -1,7 +1,7 @@
 {
   "buildCommand": "echo 'Static deployment - no build required'",
   "outputDirectory": "./",
-  "cleanUrls": false,
+  "cleanUrls": true,
   "headers": [
     {
       "source": "/chatbot-widget.js",
