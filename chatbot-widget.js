@@ -147,7 +147,7 @@
         '  font-family: inherit;' +
         '}' +
         '.scb-send:hover { background: #e0c050; }' +
-        '.scb-send:disabled { opacity: 0.5; cursor: not-allowed; }' +
+        '.scb-send:disabled { opacity: 0.5; cursor: not-allowed; }'.scb-mic{background:transparent;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:8px 12px;cursor:pointer;font-size:16px;transition:all 0.2s;display:none}' +'.scb-mic.recording{background:rgba(239,68,68,0.15)!important;border-color:rgba(239,68,68,0.5)!important;animation:mic-pulse 1.5s infinite}' +'@keyframes mic-pulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.3)}50%{box-shadow:0 0 0 8px rgba(239,68,68,0)}}' +' +
         '@media (max-width: 768px) {' +
         '  #scb-panel {' +
         '    bottom: 85px; right: 10px;' +
@@ -189,6 +189,7 @@
         '<div class="scb-pills" id="scb-pills"></div>' +
         '<div class="scb-input-area">' +
         '  <input class="scb-input" id="scb-input" type="text" placeholder="Pregunta sobre destinos, buceo, esqui..." />' +
+        '  <button class="scb-mic" id="scb-mic" type="button" aria-label="Dictar mensaje por voz">🎤</button>' +
         '  <button class="scb-send" id="scb-send">Enviar</button>' +
         '</div>';
 
@@ -204,6 +205,22 @@
         document.getElementById('scb-send').addEventListener('click', function() {
             sendMessage();
         });
+        // === Voice input (Web Speech API) ===
+        var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        var scbMic = document.getElementById('scb-mic');
+        var scbInp = document.getElementById('scb-input');
+        if (SR && scbMic && scbInp) {
+            scbMic.style.display = '';
+            var rec = new SR();
+            rec.lang = 'es-ES'; rec.interimResults = true; rec.continuous = false;
+            var vrOn = false, vrFt = '';
+            scbMic.onclick = function() { vrOn ? rec.stop() : (vrFt='', rec.start()); };
+            rec.onstart = function() { vrOn=true; scbMic.classList.add('recording'); scbMic.textContent='⏹'; scbInp.placeholder='Escuchando...'; };
+            rec.onresult = function(e) { var im=''; vrFt=''; for(var i=0;i<e.results.length;i++){e.results[i].isFinal?vrFt+=e.results[i][0].transcript:im+=e.results[i][0].transcript;} scbInp.value=vrFt||im; };
+            rec.onend = function() { vrOn=false; scbMic.classList.remove('recording'); scbMic.textContent='🎤'; scbInp.placeholder='Pregunta sobre destinos, buceo, esqui...'; if(vrFt.trim()){scbInp.value=vrFt.trim();scbInp.focus();} };
+            rec.onerror = function() { vrOn=false; scbMic.classList.remove('recording'); scbMic.textContent='🎤'; scbInp.placeholder='Pregunta sobre destinos, buceo, esqui...'; };
+        }
+
 
         // Render initial pills
         renderPills();
